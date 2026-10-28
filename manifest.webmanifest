@@ -1,0 +1,28 @@
+{
+  "name": "Tá Pago",
+  "short_name": "Tá Pago",
+  "description": "Contas do mês sem esquecer: fotografe o boleto, receba o lembrete, marque tá pago.",
+  "lang": "pt-BR",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f2ee",
+  "theme_color": "#0f5d55",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "share_target": {
+    "action": "./compartilhar",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": { "files": [{ "name": "arquivos", "accept": ["image/*", "application/pdf", ".pdf", ".jpg", ".jpeg", ".png"] }] }
+  },
+  "shortcuts": [
+    { "name": "Fotografar boleto", "url": "./?acao=foto", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ]
+}
