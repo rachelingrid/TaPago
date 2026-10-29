@@ -206,11 +206,11 @@ function carregarScript(src) {
 }
 
 /* ===================== dados ===================== */
-const FORMAS = ['Crédito Visa Infinite','Crédito Nu Platinum','Débito Kel','Pix Kel','Débito Pai','Pix Pai'];
+const FORMAS = ['Pix', 'Cartão de crédito', 'Cartão de débito', 'Boleto', 'Dinheiro'];   // cada pessoa edita a sua lista em Mais
 const SEED = [
   ['fixos','Gastos fixos',[['Aluguel',1],['Água',1],['Luz',1],['Gás',1],['Condomínio',1],['Internet',1],['Tel. móvel 1',1,{tel:1}]]],
   ['saude','Saúde',[['Plano de saúde',1],['Farmácia',0,{qr:1}]]],
-  ['educacao','Educação',[['Colégio Santa Mônica — Valentim',1]]],
+  ['educacao','Educação',[['Escola / mensalidade',1,{tag:'escola'}]]],
   ['alimentacao','Alimentação',[['Padaria',0],['Mercado',0],['Hortifruti',0]]],
   ['carro','Carro',[['Aluguel do carro',1,{carro:'alugado'}],['Gasolina',0],['Parcela do carro',1,{carro:'proprio'}],['IPVA',0,{carro:'proprio'}],['Seguro do carro',1,{carro:'proprio'}],['Manutenção do carro',0]]],
   ['transporte','Transporte',[['Uber',0],['99 Táxi',0]]],
@@ -220,7 +220,7 @@ const SEED = [
   ['praia','Casa de praia',[['Caseiro',1],['Água',1],['Luz',1],['IPTU',1],['Manutenção',0]]],
   ['serra','Casa da serra',[['IPTU',1],['Água',1],['Luz',1],['Manutenção',0]]],
   ['emprestimos','Empréstimos e parcelamentos',[]],
-  ['reserva','Reserva e previdência',[['Fundo de reserva',1],['Previdência privada Rachel',1],['INSS Rachel',1]]],
+  ['reserva','Reserva e previdência',[['Fundo de reserva',1],['Previdência privada',1,{tag:'prev'}],['INSS',1,{tag:'inss'}]]],
 ];
 const CFG0 = { ant: 3, carro: 'ambos', formas: FORMAS.slice(), autoGerar: true, gerado: '', ritual: 0 };
 function novoDB() {
@@ -604,7 +604,7 @@ const DICIO = [
   [/\b(claro|vivo|tim\b|oi\b|telefonica|nextel)/, ['Internet', '#tel']],
   [/\b(unimed|amil|bradesco saude|sulamerica saude|sul america|golden cross|hapvida|notredame|assim saude|plano de saude|porto saude|careplus|omint)/, ['Plano de saúde']],
   [/\b(drogaria|farmacia|drogasil|droga raia|raia drogasil|pacheco|venancio|pague menos|drogarias)/, ['Farmácia']],
-  [/\b(santa monica|colegio)/, ['Colégio Santa Mônica — Valentim']],
+  [/\b(colegio|escola|mensalidade escolar|educacional)/, ['#escola']],
   [/\b(padaria|panificadora|confeitaria|panificacao)/, ['Padaria']],
   [/\b(hortifruti|horti fruti|sacolao|hortifrutigranjeiros)/, ['Hortifruti']],
   [/\b(supermercado|supermercados|guanabara|prezunic|assai|atacadao|mundial|zona sul|carrefour|pao de acucar|hipermercado|mercadinho)/, ['Mercado']],
@@ -623,13 +623,13 @@ const DICIO = [
   [/\b(iptu|imposto predial|prefeitura)/, ['IPTU']],
   [/\bcaseiro\b/, ['Caseiro']],
   [/\b(aluguel|locacao residencial|imobiliaria)/, ['Aluguel']],
-  [/\b(inss|guia da previdencia|previdencia social|gps)\b/, ['INSS Rachel']],
-  [/\b(previdencia privada|pgbl|vgbl|brasilprev|icatu)/, ['Previdência privada Rachel']],
+  [/\b(inss|guia da previdencia|previdencia social|gps)\b/, ['#inss']],
+  [/\b(previdencia privada|pgbl|vgbl|brasilprev|icatu)/, ['#prev']],
 ];
 const SEG_ITENS = { '1': ['IPTU'], '2': ['Água'], '3': ['Luz', 'Gás'], '4': ['Internet', '#tel'] };
 function itensPorNome(nomes) {
   const out = [];
-  for (const c of db.cats) for (const i of itensVisiveis(c)) for (const n of nomes) if ((n === '#tel' && i.tel) || norm(i.nome) === norm(n)) out.push(i.id);
+  for (const c of db.cats) for (const i of itensVisiveis(c)) for (const n of nomes) if (n[0] === '#' ? (i.tag === n.slice(1) || i[n.slice(1)]) : norm(i.nome) === norm(n)) out.push(i.id);
   return [...new Set(out)];
 }
 function classificar(doc) {
@@ -655,7 +655,7 @@ function formaProvavel(doc, itemId) {
   const f = db.cfg.formas, ult = ultimaForma(itemId);
   const filtra = rx => { const m = f.filter(x => rx.test(norm(x))); return m.includes(ult) ? ult : m.length === 1 ? m[0] : (m[0] && doc.tipo === 'comprovante' ? ult && rx.test(norm(ult)) ? ult : '' : ''); };
   if (doc.pix) return filtra(/pix/) || ult;
-  if (doc.credito) { const n = norm(doc.texto); if (/visa/.test(n)) return f.find(x => /visa/i.test(x)) || ult; if (/nubank|nu pagamentos|mastercard/.test(n)) return f.find(x => /nu /i.test(x + ' ')) || ult; return filtra(/credito/) || ult; }
+  if (doc.credito) return filtra(/credito/) || ult;
   if (doc.debito) return filtra(/debito/) || ult;
   return ult;
 }
@@ -977,6 +977,24 @@ function opcoesItens(sel) {
     return `<optgroup label="${esc(c.nome)}">${its.map(i => `<option value="${i.id}" ${i.id === sel ? 'selected' : ''}>${esc(i.nome)}</option>`).join('')}</optgroup>`;
   }).join('') + `<option value="__novo">＋ Novo item…</option>`;
 }
+function opcoesFormas(sel) {
+  const lista = db.cfg.formas.includes(sel) || !sel ? db.cfg.formas : [...db.cfg.formas, sel];   // mantém formas antigas já usadas
+  return `<option value="">—</option>` + lista.map(f => `<option ${f === sel ? 'selected' : ''}>${esc(f)}</option>`).join('') + `<option value="__nova">＋ Nova forma de pagamento…</option>`;
+}
+function novaForma(nome) {
+  nome = String(nome || '').trim().slice(0, 40); if (!nome) return null;
+  const ex = db.cfg.formas.find(f => norm(f) === norm(nome)); if (ex) return ex;
+  db.cfg.formas.push(nome); save(); return nome;
+}
+function ligarSelectForma(sel) {
+  let ant = sel.value;
+  sel.onchange = () => {
+    if (sel.value !== '__nova') { ant = sel.value; return; }
+    const n = novaForma(prompt('Nome da nova forma de pagamento (ex.: Cartão Nubank, Pix do banco X)'));
+    sel.innerHTML = opcoesFormas(n || ant); ant = sel.value;
+    if (n) toast('“' + n + '” adicionada às suas formas de pagamento');
+  };
+}
 function abrirLanc(id, pre = {}) {
   fotoNova = null; fotoRemover = false; docForm = null;
   if ($('#dlg').open) $('#dlg').close();
@@ -996,12 +1014,13 @@ function abrirLanc(id, pre = {}) {
       <label>Pagamento<div class="inline"><input type="date" id="f-pag" value="${l.pag}"><button class="btn sm" data-act="hoje" title="Pago hoje">hoje</button></div></label></div>
     <div class="g2"><label>Valor sem multa (R$)<input id="f-valor" inputmode="decimal" value="${valorCampo(l.valor)}" placeholder="0,00"></label>
       <label>Valor com multa/juros<div class="inline"><input id="f-vm" inputmode="decimal" value="${valorCampo(l.vm)}" placeholder="—"><button class="btn sm" data-act="multa" title="Estimar 2% + 1% ao mês">calc</button></div></label></div>
-    <label>Forma de pagamento<select id="f-forma"><option value="">—</option>${db.cfg.formas.map(f => `<option ${f === l.forma ? 'selected' : ''}>${esc(f)}</option>`).join('')}</select></label>
+    <label>Forma de pagamento<select id="f-forma">${opcoesFormas(l.forma)}</select></label>
     <div class="g2"><label>Parcela (ex.: 3/12)<input id="f-parc" value="${esc(l.parc)}"></label><label>Observação<input id="f-obs" value="${esc(l.obs)}"></label></div>
     ${l.cod && !l.pag ? '<div class="acts left"><button class="btn sm" data-act="copiarform">Copiar código para pagar no banco</button><button class="btn sm" data-act="icsum">📅 Lembrete na agenda</button></div>' : ''}
     <div class="foto" id="f-foto"></div><div class="foto" id="f-comp"></div>
     <div class="acts">${novo ? '' : '<button class="btn danger" data-act="dellanc">Excluir</button>'}<button class="btn" data-act="fechar">Cancelar</button><button class="btn pri" data-act="salvarlanc">Salvar</button></div>`;
   $('#f-item').onchange = e => { $('#f-novo').hidden = e.target.value !== '__novo'; };
+  ligarSelectForma($('#f-forma'));
   if (l.foto) idbGet('fotos', l.id).then(b => { if (b) mostrarFoto(b); });
   if (l.comp) idbGet('fotos', l.id + ':comp').then(b => { if (b) $('#f-comp').innerHTML = `<div class="mute" style="margin-top:8px">Comprovante</div><img src="${URL.createObjectURL(b)}" alt="Comprovante">`; });
   $('#dlg').showModal();
@@ -1293,7 +1312,7 @@ async function bancoAbrir(pin) {
   render();
 }
 function bancoTrancar() { bancoKey = null; bancoDados = null; if (vista === 'mais') render(); }
-const BCAMPOS = [['apelido', 'Apelido (ex.: Conta Kel)'], ['banco', 'Banco'], ['titular', 'Titular'], ['agencia', 'Agência'], ['conta', 'Conta'], ['tipo', 'Tipo (corrente, poupança…)'], ['pix', 'Chave Pix'], ['obs', 'Observação']];
+const BCAMPOS = [['apelido', 'Apelido (ex.: Conta principal)'], ['banco', 'Banco'], ['titular', 'Titular'], ['agencia', 'Agência'], ['conta', 'Conta'], ['tipo', 'Tipo (corrente, poupança…)'], ['pix', 'Chave Pix'], ['obs', 'Observação']];
 function bancoHTML() {
   if (!bancoKey) return `<p class="hint">${db.banco ? 'Protegido por PIN e criptografado no aparelho.' : 'Crie um PIN para guardar dados bancários criptografados (AES-256) só neste aparelho.'}</p>
     <div class="inline"><input id="b-pin" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off"><button class="btn pri" data-act="babrir">${db.banco ? 'Abrir' : 'Criar PIN'}</button></div>`;
@@ -1324,9 +1343,12 @@ function renderMais() {
     <div class="acts left"><button class="btn pri" data-act="csv">Exportar CSV</button><button class="btn" data-act="json">Backup completo (.json)</button><button class="btn" data-act="importar">Importar</button></div>
     <p class="hint">CSV com “;” e vírgula decimal (abre no Excel / LibreOffice). O backup .json inclui itens, o que o app aprendeu e os dados bancários (criptografados). Fotos ficam só no aparelho.</p></div>
   <div class="card"><h3 class="sec">Dados bancários</h3>${bancoHTML()}</div>
+  <div class="card"><h3 class="sec">Formas de pagamento</h3>
+    <p class="hint">Monte a sua lista: cartões, contas, Pix de cada banco… Ela fica só neste aparelho.</p>
+    ${db.cfg.formas.map((f, k) => `<div class="row" style="cursor:default"><div class="ri"><b>${esc(f)}</b></div><button class="btn sm" data-act="fsubir" data-k="${k}" ${k ? '' : 'disabled'} aria-label="Subir">↑</button><button class="btn sm" data-act="frenomear" data-k="${k}">Renomear</button><button class="btn sm danger" data-act="fremover" data-k="${k}" aria-label="Remover">✕</button></div>`).join('') || '<p class="hint">Nenhuma forma cadastrada.</p>'}
+    <div class="inline" style="margin-top:8px"><input id="c-nforma" placeholder="Nova forma (ex.: Cartão Nubank)" maxlength="40"><button class="btn pri" data-act="fadd">Adicionar</button></div></div>
   <div class="card"><h3 class="sec">Configurações</h3>
     <label>Carro<select id="c-carro"><option value="ambos" ${db.cfg.carro === 'ambos' ? 'selected' : ''}>Mostrar todos os itens</option><option value="alugado" ${db.cfg.carro === 'alugado' ? 'selected' : ''}>Carro alugado (aluguel, gasolina, manutenção)</option><option value="proprio" ${db.cfg.carro === 'proprio' ? 'selected' : ''}>Carro próprio (parcela, IPVA, seguro…)</option></select></label>
-    <label>Formas de pagamento (uma por linha)<textarea id="c-formas" rows="6">${esc(db.cfg.formas.join('\n'))}</textarea></label>
     <div class="acts left"><button class="btn pri" data-act="salvarcfg">Salvar configurações</button><button class="btn" data-act="esquecertudo">Esquecer o que o app aprendeu (${Object.keys(db.regras).length})</button></div></div>
   <div class="card"><h3 class="sec">Zona de risco</h3><button class="btn danger" data-act="zerar">Apagar todos os dados</button></div>
   <p class="hint" style="text-align:center">Tá Pago · funciona offline · seus dados ficam só neste aparelho</p>`;
@@ -1369,7 +1391,7 @@ const acoes = {
     c.itens = c.itens.filter(x => x.id !== d.id); db.lanc = db.lanc.filter(l => l.item !== d.id); save(); $('#dlg').close(); render();
   },
   additem: d => { const n = prompt('Nome do novo item'); if (!n?.trim()) return; db.cats.find(c => c.id === d.cat).itens.push({ id: uid(), nome: n.trim(), rec: confirm('É uma conta de todo mês?'), dia: null, vp: null, oculto: false }); save(); render(); },
-  addtel: () => { const c = db.cats.find(c => c.id === 'fixos'), t = c.itens.filter(i => i.tel).length; if (t >= 10) return; const n = prompt('Nome da linha (ex.: celular do Valentim)', 'Tel. móvel ' + (t + 1)); if (!n?.trim()) return; c.itens.push({ id: uid(), nome: n.trim(), rec: true, dia: null, vp: null, oculto: false, tel: 1 }); save(); render(); },
+  addtel: () => { const c = db.cats.find(c => c.id === 'fixos'), t = c.itens.filter(i => i.tel).length; if (t >= 10) return; const n = prompt('Nome da linha (ex.: celular de casa)', 'Tel. móvel ' + (t + 1)); if (!n?.trim()) return; c.itens.push({ id: uid(), nome: n.trim(), rec: true, dia: null, vp: null, oculto: false, tel: 1 }); save(); render(); },
   addcat: () => { const n = prompt('Nome da nova categoria'); if (!n?.trim()) return; db.cats.push({ id: uid(), nome: n.trim(), itens: [] }); save(); render(); },
   rencat: d => { const c = db.cats.find(c => c.id === d.cat); const n = prompt('Novo nome (vazio para excluir a categoria, se estiver sem itens)', c.nome); if (n === null) return; if (!n.trim()) { if (c.itens.length) return toast('A categoria ainda tem itens'); db.cats = db.cats.filter(x => x !== c); } else c.nome = n.trim(); save(); render(); },
   imprimir: () => window.print(),
@@ -1386,7 +1408,12 @@ const acoes = {
   bdel: d => { if (!confirm('Remover esta conta?')) return; bancoLerCampos(); bancoDados.splice(+d.k, 1); bancoGravar().then(render); },
   bsalvar: async () => { bancoLerCampos(); await bancoGravar(); toast('Dados bancários salvos (criptografados)'); },
   bcopiar: async d => { bancoLerCampos(); try { await navigator.clipboard.writeText(bancoDados[+d.k].pix); toast('Chave Pix copiada'); } catch (e) { toast('Não foi possível copiar'); } },
-  salvarcfg: () => { db.cfg.carro = $('#c-carro').value; const f = $('#c-formas').value.split('\n').map(s => s.trim()).filter(Boolean); if (f.length) db.cfg.formas = f; save(); toast('Configurações salvas'); render(); },
+  fadd: () => { const n = novaForma($('#c-nforma').value); if (n) { render(); toast('“' + n + '” adicionada'); } else toast('Digite o nome da forma de pagamento'); },
+  fremover: d => { const f = db.cfg.formas[+d.k]; if (!confirm('Remover “' + f + '” da lista? Os lançamentos antigos continuam com ela.')) return; db.cfg.formas.splice(+d.k, 1); save(); render(); },
+  frenomear: d => { const k = +d.k, ant = db.cfg.formas[k], n = (prompt('Novo nome', ant) || '').trim().slice(0, 40); if (!n || n === ant) return;
+    db.cfg.formas[k] = n; let c = 0; for (const l of db.lanc) if (l.forma === ant) { l.forma = n; c++; } save(); render(); toast('Renomeada' + (c ? ' em ' + c + ' lançamento(s)' : '')); },
+  fsubir: d => { const k = +d.k; if (k < 1) return; const a = db.cfg.formas; [a[k - 1], a[k]] = [a[k], a[k - 1]]; save(); render(); },
+  salvarcfg: () => { db.cfg.carro = $('#c-carro').value; save(); toast('Configurações salvas'); render(); },
   zerar: () => { if (!confirm('Apagar TODOS os lançamentos, itens e dados bancários deste aparelho?')) return; if (prompt('Digite APAGAR para confirmar') !== 'APAGAR') return; db = novoDB(); bancoTrancar(); save(); render(); },
 };
 document.addEventListener('click', e => {

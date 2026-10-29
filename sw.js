@@ -1,5 +1,5 @@
 // Tá Pago — service worker: funciona offline, recebe arquivos compartilhados e avisa contas a vencer.
-const APP = 'tapago-app-v2';
+const APP = 'tapago-app-v3';
 const LIB = 'tapago-lib-v1';
 const ARQ_APP = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 const ARQ_LIB = ['lib/jsQR.js', 'lib/pdf.min.js', 'lib/pdf.worker.min.js', 'lib/tesseract.min.js', 'lib/worker.min.js', 'lib/tesseract-core-lstm.wasm.js', 'lib/por.traineddata.gz'];
